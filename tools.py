@@ -118,12 +118,14 @@ async def send_email(
 async def execute_pc_command(
     context: RunContext,  # type: ignore
     command: str,
-    reasoning: str
+    reasoning: str,
+    user_confirmed: bool = False
 ) -> str:
     """
     Execute a Windows system command on the user's PC. 
     Can be used to open apps (e.g. 'start calc', 'start notepad', 'start spotify'), manage files, or change system settings.
     Use this when the user asks you to control their computer or open an application.
+    If the command requires confirmation, ask the user verbally and call this tool again with user_confirmed=True.
     """
     try:
         allowed_commands_str = os.getenv("ALLOWED_COMMANDS", "start calc,start notepad,explorer")
@@ -132,15 +134,11 @@ async def execute_pc_command(
         
         is_allowed = any(command.lower().startswith(cmd) for cmd in allowed_commands)
         
-        if require_confirmation:
+        if (require_confirmation or not is_allowed) and not user_confirmed:
             logging.info(f"Command execution requires confirmation: {command}")
-            return f"Action requires user confirmation. Command '{command}' was NOT executed. Please ask the user to confirm manually."
-            
-        if not is_allowed:
-            logging.warning(f"Blocked unauthorized command: {command}")
-            return f"Command '{command}' is not in the allowlist. Allowed prefixes: {', '.join(allowed_commands)}"
+            return f"Action requires user confirmation. Command '{command}' was NOT executed. Please verbally ask the user to confirm. If they say yes, call this tool again with user_confirmed=True."
 
-        logging.info(f"Executing PC command: {command} (Reasoning: {reasoning})")
+        logging.info(f"Executing PC command: {command} (Reasoning: {reasoning}, Confirmed: {user_confirmed})")
         # Run the command using powershell/cmd
         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=10)
         
