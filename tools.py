@@ -126,6 +126,20 @@ async def execute_pc_command(
     Use this when the user asks you to control their computer or open an application.
     """
     try:
+        allowed_commands_str = os.getenv("ALLOWED_COMMANDS", "start calc,start notepad,explorer")
+        allowed_commands = [c.strip().lower() for c in allowed_commands_str.split(",")]
+        require_confirmation = os.getenv("REQUIRE_CMD_CONFIRMATION", "true").lower() == "true"
+        
+        is_allowed = any(command.lower().startswith(cmd) for cmd in allowed_commands)
+        
+        if require_confirmation:
+            logging.info(f"Command execution requires confirmation: {command}")
+            return f"Action requires user confirmation. Command '{command}' was NOT executed. Please ask the user to confirm manually."
+            
+        if not is_allowed:
+            logging.warning(f"Blocked unauthorized command: {command}")
+            return f"Command '{command}' is not in the allowlist. Allowed prefixes: {', '.join(allowed_commands)}"
+
         logging.info(f"Executing PC command: {command} (Reasoning: {reasoning})")
         # Run the command using powershell/cmd
         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=10)
@@ -173,8 +187,15 @@ async def write_and_open_file(
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        # Open the file using the default Windows application
-        os.startfile(filename)
+        # Open the file using the default application (cross-platform fallback)
+        import sys
+        if sys.platform == "win32":
+            os.startfile(filename)
+        elif sys.platform == "darwin":
+            subprocess.call(["open", filename])
+        else:
+            subprocess.call(["xdg-open", filename])
+            
         return f"Successfully wrote {len(content)} characters to {filename} and opened it."
     except Exception as e:
         return f"Failed to write or open file: {str(e)}"

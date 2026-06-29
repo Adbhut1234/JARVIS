@@ -78,7 +78,7 @@ async def entrypoint(ctx: agents.JobContext):
     
 
     mem0 = AsyncMemoryClient()
-    user_name = 'Adi'
+    user_name = ctx.room.metadata if ctx.room.metadata else os.getenv('JARVIS_USER_ID', 'Admin')
 
     raw_results = await mem0.get_all(filters={'user_id': user_name})
     results = raw_results.get('results', []) if isinstance(raw_results, dict) else raw_results
