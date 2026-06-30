@@ -1,4 +1,5 @@
 import logging
+from computer_use import computer_use_loop
 from livekit.agents import function_tool, RunContext
 import requests
 from langchain_community.tools import DuckDuckGoSearchRun
@@ -257,3 +258,17 @@ async def press_keyboard_shortcut(
         return f"Successfully pressed {keys}."
     except Exception as e:
         return f"Failed to press shortcut: {str(e)}"
+
+@function_tool()
+async def control_computer(context: RunContext, task: str) -> str:
+    """
+    Take control of the screen to complete a multi-step visual task — looking at screenshots,
+    clicking, typing, and verifying each step before moving on. Use this instead of
+    move_and_click_mouse/type_keyboard_text when the task needs precise visual grounding
+    (e.g. "open Spotify and play my workout playlist", "fill out this form").
+    """
+    try:
+        return await computer_use_loop(task)
+    except Exception as e:
+        logging.error(f"control_computer failed: {e}")
+        return f"Computer control task failed: {str(e)}"

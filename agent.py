@@ -5,7 +5,7 @@ from livekit.agents import AgentSession, Agent, RoomInputOptions, ChatContext
 from livekit.plugins import noise_cancellation
 from livekit.plugins import google
 from prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
-from tools import get_weather, search_web, send_email, execute_pc_command, open_website, write_and_open_file, move_and_click_mouse, type_keyboard_text, press_keyboard_shortcut
+from tools import get_weather, search_web, send_email, execute_pc_command, open_website, write_and_open_file, move_and_click_mouse, type_keyboard_text, press_keyboard_shortcut, control_computer
 from mem0 import AsyncMemoryClient
 
 import os
@@ -33,7 +33,8 @@ class Assistant(Agent):
                 write_and_open_file,
                 move_and_click_mouse,
                 type_keyboard_text,
-                press_keyboard_shortcut
+                press_keyboard_shortcut,
+                control_computer
             ],
             chat_ctx=chat_ctx
 
