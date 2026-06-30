@@ -5,7 +5,7 @@ from livekit.agents import AgentSession, Agent, RoomInputOptions, ChatContext
 from livekit.plugins import noise_cancellation
 from livekit.plugins import google
 from prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
-from tools import get_weather, search_web, send_email, execute_pc_command, open_website, write_and_open_file, move_and_click_mouse, type_keyboard_text, press_keyboard_shortcut, control_computer
+from tools import get_weather, search_web, send_email, execute_pc_command, open_website, write_and_open_file, move_and_click_mouse, type_keyboard_text, press_keyboard_shortcut, control_computer, open_application
 from mem0 import AsyncMemoryClient
 
 import os
@@ -34,7 +34,8 @@ class Assistant(Agent):
                 move_and_click_mouse,
                 type_keyboard_text,
                 press_keyboard_shortcut,
-                control_computer
+                control_computer,
+                open_application
             ],
             chat_ctx=chat_ctx
 
@@ -109,6 +110,10 @@ async def entrypoint(ctx: agents.JobContext):
         role="system",
         content=SESSION_INSTRUCTION
     )
+    initial_ctx.add_message(
+        role="user",
+        content="Hello J.A.R.V.I.S, please greet me."
+    )
 
     agent = Assistant(chat_ctx=initial_ctx)
 
@@ -126,9 +131,7 @@ async def entrypoint(ctx: agents.JobContext):
 
     await ctx.connect()
 
-    await session.generate_reply(
-        instructions=SESSION_INSTRUCTION,
-    )
+    # generate_reply is incompatible with Gemini Realtime API and omitted here.
 
     ctx.add_shutdown_callback(lambda: shutdown_hook(session._agent.chat_ctx, mem0, memory_str, user_name))
 

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+_pc_lock = asyncio.Lock()
 
 ACTION_SCHEMA = """
 Respond ONLY with JSON in this exact shape, no other text:
@@ -50,33 +51,36 @@ def _execute(action: dict):
         time.sleep(action.get("seconds", 1))
 
 async def computer_use_loop(task: str, max_steps: int = 15) -> str:
-    history = []
-    for step in range(max_steps):
-        screenshot_part, (w, h) = await asyncio.to_thread(_screenshot_part)
-        prompt = (
-            f"You are controlling a desktop to accomplish this task: {task}\n"
-            f"Screen resolution: {w}x{h}. Coordinates must be within this range.\n"
-            f"Actions taken so far: {json.dumps(history[-5:])}\n"
-            f"Look at the screenshot. Decide the SINGLE next action.\n{ACTION_SCHEMA}"
-        )
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[prompt, screenshot_part],
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
-        try:
-            action = json.loads(response.text)
-        except json.JSONDecodeError:
-            logging.error(f"Bad JSON from model: {response.text}")
-            continue
+    if _pc_lock.locked():
+        return "I'm still working on the previous screen task — please wait for it to finish first."
+    async with _pc_lock:
+        history = []
+        for step in range(max_steps):
+            screenshot_part, (w, h) = await asyncio.to_thread(_screenshot_part)
+            prompt = (
+                f"You are controlling a desktop to accomplish this task: {task}\n"
+                f"Screen resolution: {w}x{h}. Coordinates must be within this range.\n"
+                f"Actions taken so far: {json.dumps(history[-5:])}\n"
+                f"Look at the screenshot. Decide the SINGLE next action.\n{ACTION_SCHEMA}"
+            )
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt, screenshot_part],
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            try:
+                action = json.loads(response.text)
+            except json.JSONDecodeError:
+                logging.error(f"Bad JSON from model: {response.text}")
+                continue
 
-        logging.info(f"Step {step}: {action}")
-        history.append({"action": action.get("action"), "reasoning": action.get("reasoning", "")})
+            logging.info(f"Step {step}: {action}")
+            history.append({"action": action.get("action"), "reasoning": action.get("reasoning", "")})
 
-        if action["action"] == "done":
-            return action.get("done_summary", "Task completed.")
+            if action["action"] == "done":
+                return action.get("done_summary", "Task completed.")
 
-        await asyncio.to_thread(_execute, action)
-        await asyncio.sleep(0.6)  # let UI settle before next screenshot
+            await asyncio.to_thread(_execute, action)
+            await asyncio.sleep(0.6)  # let UI settle before next screenshot
 
-    return "Reached max steps without confirming task completion. Stopped for safety."
+        return "Reached max steps without confirming task completion. Stopped for safety."

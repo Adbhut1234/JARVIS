@@ -11,6 +11,7 @@ from typing import Optional
 import subprocess
 import webbrowser
 import pyautogui
+import asyncio
 
 @function_tool()
 async def get_weather(
@@ -275,3 +276,22 @@ async def control_computer(context: RunContext, task: str) -> str:
     except Exception as e:
         logging.error(f"control_computer failed: {e}")
         return f"Computer control task failed: {str(e)}"
+
+@function_tool()
+async def open_application(context: RunContext, app_name: str) -> str:
+    """
+    Open any installed application by its display name, using Windows Search —
+    works for any app in the Start Menu, regardless of whether it has a registered
+    system command or URI protocol. Use this as the default way to open apps,
+    instead of guessing 'start <name>' in execute_pc_command.
+    """
+    try:
+        logging.info(f"Opening application via Windows Search: {app_name}")
+        pyautogui.press('win')
+        await asyncio.sleep(0.5)
+        pyautogui.write(app_name, interval=0.05)
+        await asyncio.sleep(1.2)  # let search results populate before confirming
+        pyautogui.press('enter')
+        return f"Opened '{app_name}' via Windows Search."
+    except Exception as e:
+        return f"Failed to open '{app_name}': {str(e)}"
