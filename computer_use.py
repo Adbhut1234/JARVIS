@@ -1,11 +1,8 @@
-import os, io, json, time, base64, logging, asyncio
+import os, io, json, time, base64, logging, asyncio, requests
 import pyautogui
-from google import genai
-from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 _pc_lock = asyncio.Lock()
 
 ACTION_SCHEMA = """
@@ -27,7 +24,7 @@ def _screenshot_part():
     img = pyautogui.screenshot()
     buf = io.BytesIO()
     img.save(buf, format="PNG")
-    return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/png"), img.size
+    return base64.b64encode(buf.getvalue()).decode('utf-8'), img.size
 
 def _execute(action: dict):
     a = action["action"]
@@ -64,20 +61,29 @@ async def computer_use_loop(task: str, max_steps: int = 15) -> str:
                 f"Look at the screenshot. Decide the SINGLE next action.\n{ACTION_SCHEMA}"
             )
             try:
-                response = await client.aio.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[prompt, screenshot_part],
-                    config=types.GenerateContentConfig(response_mime_type="application/json"),
-                )
+                def _call_ollama():
+                    return requests.post(
+                        "http://localhost:11434/api/generate",
+                        json={
+                            "model": "minicpm-v",
+                            "prompt": prompt,
+                            "images": [screenshot_part],
+                            "stream": False,
+                            "format": "json"
+                        },
+                        timeout=120
+                    )
+                response = await asyncio.to_thread(_call_ollama)
+                response.raise_for_status()
+                response_text = response.json().get("response", "")
             except Exception as e:
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    logging.warning("API rate limit hit during computer_use_loop.")
-                    return "Task aborted due to API rate limits (429 Quota Exceeded). Please wait a minute before trying again or upgrade your API tier."
-                raise e
+                logging.warning(f"Ollama API error in computer_use_loop: {e}")
+                return "Task aborted due to Ollama error. Make sure Ollama is running and 'minicpm-v' is installed."
+                
             try:
-                action = json.loads(response.text)
+                action = json.loads(response_text)
             except json.JSONDecodeError:
-                logging.error(f"Bad JSON from model: {response.text}")
+                logging.error(f"Bad JSON from model: {response_text}")
                 continue
 
             logging.info(f"Step {step}: {action}")

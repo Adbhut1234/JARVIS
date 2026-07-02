@@ -216,9 +216,9 @@ async def move_and_click_mouse(
     """
     try:
         logging.info(f"Moving mouse to ({x}, {y})")
-        pyautogui.moveTo(x, y, duration=0.5)
+        await asyncio.to_thread(pyautogui.moveTo, x, y, duration=0.5)
         if click:
-            pyautogui.click()
+            await asyncio.to_thread(pyautogui.click)
             return f"Successfully moved to ({x}, {y}) and clicked."
         return f"Successfully moved to ({x}, {y})."
     except Exception as e:
@@ -238,9 +238,9 @@ async def type_keyboard_text(
     """
     try:
         logging.info(f"Typing text: {text}")
-        pyautogui.write(text, interval=0.05)
+        await asyncio.to_thread(pyautogui.write, text, interval=0.05)
         if press_enter:
-            pyautogui.press('enter')
+            await asyncio.to_thread(pyautogui.press, 'enter')
             return f"Successfully typed text and pressed Enter."
         return f"Successfully typed text."
     except Exception as e:
@@ -258,7 +258,7 @@ async def press_keyboard_shortcut(
     try:
         logging.info(f"Pressing shortcut: {keys}")
         key_list = [k.strip() for k in keys.split(',')]
-        pyautogui.hotkey(*key_list)
+        await asyncio.to_thread(pyautogui.hotkey, *key_list)
         return f"Successfully pressed {keys}."
     except Exception as e:
         return f"Failed to press shortcut: {str(e)}"
@@ -287,11 +287,11 @@ async def open_application(context: RunContext, app_name: str) -> str:
     """
     try:
         logging.info(f"Opening application via Windows Search: {app_name}")
-        pyautogui.press('win')
+        await asyncio.to_thread(pyautogui.press, 'win')
         await asyncio.sleep(0.5)
-        pyautogui.write(app_name, interval=0.05)
+        await asyncio.to_thread(pyautogui.write, app_name, interval=0.05)
         await asyncio.sleep(1.2)  # let search results populate before confirming
-        pyautogui.press('enter')
+        await asyncio.to_thread(pyautogui.press, 'enter')
         return f"Opened '{app_name}' via Windows Search."
     except Exception as e:
         return f"Failed to open '{app_name}': {str(e)}"
